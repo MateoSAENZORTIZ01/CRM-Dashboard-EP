@@ -1,16 +1,27 @@
-Sub GenererTableauVidesTousPipelinesComplet()
-    Dim ws As Worksheet
+Sub GenererTableauVidesDansNouvelleFeuille()
+    Dim ws As Worksheet, wsResult As Worksheet
     Dim lastCol As Long, lastRow As Long
     Dim resultRow As Long
     Dim pipelineDict As Object
     Dim pipelineCol As Range, cell As Range
-    Dim colIndex As Long, emptyCount As Long
+    Dim colIndex As Long, emptyCount As Long, totalLignes As Long
     Dim pipelineValue As String
     
-    ' Définir la feuille active
+    ' Définir la feuille active (données sources)
     Set ws = ActiveSheet
 
-    ' Trouver la dernière colonne et la dernière ligne
+    ' Vérifier si la feuille "Analyse Cellules Vides" existe déjà et la supprimer
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    Sheets("Analyse Cellules Vides").Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+
+    ' Créer une nouvelle feuille pour les résultats
+    Set wsResult = ThisWorkbook.Sheets.Add
+    wsResult.Name = "Analyse Cellules Vides"
+
+    ' Trouver la dernière colonne et la dernière ligne dans la feuille source
     lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
 
@@ -25,36 +36,42 @@ Sub GenererTableauVidesTousPipelinesComplet()
         End If
     Next cell
 
-    ' Déterminer où commencer le tableau des résultats
-    resultRow = lastRow + 2
-    ws.Cells(resultRow, 1).Value = "Pipeline"
-    ws.Cells(resultRow, 2).Value = "Colonne"
-    ws.Cells(resultRow, 3).Value = "Cellules Vides"
+    ' Écrire les en-têtes dans la feuille "Analyse Cellules Vides"
+    wsResult.Cells(1, 1).Value = "Pipeline"
+    wsResult.Cells(1, 2).Value = "Colonne"
+    wsResult.Cells(1, 3).Value = "Cellules Vides"
+    wsResult.Cells(1, 4).Value = "Total Lignes"
 
     ' Appliquer un format en gras aux titres
-    ws.Range(ws.Cells(resultRow, 1), ws.Cells(resultRow, 3)).Font.Bold = True
+    wsResult.Range("A1:D1").Font.Bold = True
 
     ' Initialiser la ligne de sortie
-    resultRow = resultRow + 1
+    resultRow = 2
 
     ' Boucler sur chaque valeur de Pipeline
     Dim key As Variant
     For Each key In pipelineDict.keys
         pipelineValue = key
+        
+        ' Calculer le total de lignes pour ce pipeline
+        totalLignes = Application.WorksheetFunction.CountIf(ws.Range("B2:B" & lastRow), pipelineValue)
 
         ' Boucler sur toutes les colonnes à partir de la deuxième
         For colIndex = 2 To lastCol
             ' Compter les cellules vides pour ce pipeline dans la colonne courante
             emptyCount = Application.WorksheetFunction.CountIfs(ws.Range("B2:B" & lastRow), pipelineValue, ws.Range(ws.Cells(2, colIndex), ws.Cells(lastRow, colIndex)), "")
 
-            ' Ajouter au tableau des résultats (même si emptyCount = 0)
-            ws.Cells(resultRow, 1).Value = pipelineValue
-            ws.Cells(resultRow, 2).Value = ws.Cells(1, colIndex).Value ' Nom de la colonne
-            ws.Cells(resultRow, 3).Value = emptyCount ' Nombre de cellules vides
+            ' Ajouter au tableau des résultats dans la nouvelle feuille
+            wsResult.Cells(resultRow, 1).Value = pipelineValue
+            wsResult.Cells(resultRow, 2).Value = ws.Cells(1, colIndex).Value ' Nom de la colonne
+            wsResult.Cells(resultRow, 3).Value = emptyCount ' Nombre de cellules vides
+            wsResult.Cells(resultRow, 4).Value = totalLignes ' Nombre total de lignes pour ce pipeline
             resultRow = resultRow + 1
         Next colIndex
     Next key
 
-    MsgBox "Tableau généré avec succès !", vbInformation
-End Sub
+    ' Ajuster la largeur des colonnes pour une meilleure lisibilité
+    wsResult.Columns("A:D").AutoFit
 
+    MsgBox "Tableau généré dans la feuille 'Analyse Cellules Vides' avec succès !", vbInformation
+End Sub
